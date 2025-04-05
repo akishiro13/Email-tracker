@@ -11,7 +11,7 @@ Ce programme permet de rechercher les comptes en ligne associés à une adresse 
 
 ## Installation
 
-1. Clonez le repository
+1. Clonez le repository `git clone https://github.com/akishiro13/Email-tracker.git`
 2. Installez les dépendances avec `npm install`
 3. Lancez l'application avec `npm run dev`
 
