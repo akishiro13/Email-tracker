@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Mail, AlertCircle, Loader2, Check, X } from 'lucide-react';
+import md5 from 'md5';
 
 interface SearchResult {
   service: string;
@@ -15,96 +16,108 @@ function App() {
   const [error, setError] = useState('');
 
   const checkGravatar = (email: string): SearchResult => {
-    const hash = require('md5')(email.trim().toLowerCase());
-    const url = `https://www.gravatar.com/${hash}`;
+    const hash = md5(email.trim().toLowerCase());
     return {
       service: 'Gravatar',
       found: true,
-      url,
-      details: 'Profil public trouvé'
+      url: `https://www.gravatar.com/${hash}`,
+      details: 'Gravatar peut exister – Vérifiez manuellement',
     };
-  };
-
-  const checkHIBP = async (email: string): Promise<SearchResult> => {
-    try {
-      const response = await fetch(
-        `https://haveibeenpwned.com/api/v3/breachedaccount/${encodeURIComponent(email)}`,
-        {
-          headers: {
-            'hibp-api-key': 'YOUR_HIBP_API_KEY' // Remplacez par votre clé gratuite
-          }
-        }
-      );
-
-      if (response.status === 404) {
-        return {
-          service: 'Have I Been Pwned',
-          found: false,
-          details: 'Aucune fuite de données trouvée'
-        };
-      }
-
-      const data = await response.json();
-      return {
-        service: 'Have I Been Pwned',
-        found: true,
-        details: `Trouvé dans ${data.length} fuites de données`
-      };
-    } catch (error) {
-      return {
-        service: 'Have I Been Pwned',
-        found: false,
-        details: 'Erreur de vérification'
-      };
-    }
   };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email) {
       setError('Veuillez entrer une adresse email');
       return;
     }
-  
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Veuillez entrer une adresse email valide');
       return;
     }
-  
+
     setIsSearching(true);
     setError('');
     setResults([]);
-  
+
     try {
       const results: SearchResult[] = [];
-      
-      // 1. Gravatar (toujours synchrone)
+
+      const emailEncoded = encodeURIComponent(email);
+
+      // Gravatar
       results.push(checkGravatar(email));
-      
-      // 2. Have I Been Pwned (avec gestion d'erreur détaillée)
-      try {
-        const hibpResult = await checkHIBP(email);
-        results.push(hibpResult);
-      } catch (hibpError) {
-        results.push({
-          service: 'Have I Been Pwned',
-          found: false,
-          details: 'Service temporairement indisponible'
-        });
-      }
-  
-      // 3. Optionnel : Ajouter d'autres services ici
+
+      // TruePeopleSearch (via Google site search)
       results.push({
-        service: 'Google (recherche manuelle)',
+        service: 'TruePeopleSearch (Email Lookup)',
         found: false,
-        url: `https://www.google.com/search?q=${encodeURIComponent(`site:twitter.com OR site:facebook.com OR site:linkedin.com "${email}"`)}`,
-        details: 'Effectuer une recherche manuelle'
+        url: `https://truepeoplesearch.net/email-lookup`,
+        details: 'Recherche manuelle à faire sur le site avec l’email',
+      });      
+
+      // Autres services
+      results.push({
+        service: 'Intelligence X',
+        found: false,
+        url: `https://intelx.io/?s=${emailEncoded}&f=email`,
+        details: 'Recherche dans les données publiques',
       });
-  
+
+      results.push({
+        service: 'DeHashed',
+        found: false,
+        url: `https://www.dehashed.com/search?query=${emailEncoded}`,
+        details: 'Recherche dans les bases de données',
+      });
+
+      results.push({
+        service: 'LeakCheck',
+        found: false,
+        url: `https://leakcheck.io/search?query=${emailEncoded}`,
+        details: 'Fuites de données – Vérification manuelle',
+      });
+
+      results.push({
+        service: 'Hunter.io',
+        found: false,
+        url: `https://hunter.io/search/${emailEncoded}`,
+        details: 'Email professionnel (domaine)',
+      });
+
+      results.push({
+        service: 'Social Searcher',
+        found: false,
+        url: `https://www.social-searcher.com/google-social-search/?q=${emailEncoded}`,
+        details: 'Réseaux sociaux publics',
+      });
+
+      results.push({
+        service: "That'sThem",
+        found: false,
+        url: `https://thatsthem.com/email/${emailEncoded}`,
+        details: 'Recherche dans les bases de données US',
+      });
+
+      results.push({
+        service: 'BeenVerified',
+        found: false,
+        url: `https://www.beenverified.com/email/${emailEncoded}`,
+        details: 'Recherche d’identité liée à l’email',
+      });
+
+      results.push({
+        service: 'Pipl',
+        found: false,
+        url: `https://pipl.com/search/?q=${emailEncoded}&l=&in=5`,
+        details: 'Profil public lié à l’email',
+      });
+
       setResults(results);
     } catch (error) {
-      console.error('Erreur globale:', error); // Debug
+      console.error('Erreur globale:', error);
       setError('Erreur lors de la recherche - Voir la console pour les détails');
     } finally {
       setIsSearching(false);
@@ -116,7 +129,7 @@ function App() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-3xl font-bold text-center mb-8 text-indigo-900">
-            Recherche de Comptes par Email
+            Recherche d’Informations par Email (Gratuit)
           </h1>
 
           <form onSubmit={handleSearch} className="mb-8">
@@ -186,17 +199,20 @@ function App() {
             ))}
           </div>
 
-          {isSearching && results.length === 0 && (
-            <div className="text-center mt-8">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-600" />
-              <p className="mt-2 text-gray-600">Recherche en cours...</p>
-            </div>
-          )}
-
           {!isSearching && results.length > 0 && (
             <div className="mt-6 text-center text-sm text-gray-500">
-              <p>Ces résultats proviennent de sources publiques et légales.</p>
-              <p className="mt-1">Pour supprimer vos comptes, visitez <a href="https://justdeleteme.xyz" className="text-indigo-600" target="_blank" rel="noopener">JustDeleteMe</a>.</p>
+              <p>Ces outils sont gratuits et basés sur des recherches publiques.</p>
+              <p className="mt-1">
+                Supprimer vos comptes :{' '}
+                <a
+                  href="https://justdeleteme.xyz"
+                  className="text-indigo-600"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  JustDeleteMe
+                </a>
+              </p>
             </div>
           )}
         </div>
